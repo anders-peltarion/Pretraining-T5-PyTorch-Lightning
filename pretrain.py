@@ -8,8 +8,8 @@ from dataclasses import dataclass, asdict
 import pytorch_lightning as pl
 import pytorch_lightning_spells as pls
 import typer
-from transformers import T5ForConditionalGeneration, T5Tokenizer
-
+from transformers import T5ForConditionalGeneration, T5Tokenizer, MT5Tokenizer, MT5ForConditionalGeneration
+import torch
 from Cord19Dataset import Cord19Dataset, DATASET_DIR, Parts
 from t2t import BaseConfig, T5BaseModel, masked_cross_entropy_loss
 
@@ -25,8 +25,8 @@ class Config(BaseConfig):
 
 class T5Model(T5BaseModel):
     def __init__(self, config: Config, **kwargs):
-        model = T5ForConditionalGeneration.from_pretrained(config.base_t5_model)
-        tokenizer = T5Tokenizer.from_pretrained(config.base_t5_model)
+        model = MT5ForConditionalGeneration.from_pretrained(config.base_t5_model)
+        tokenizer = MT5Tokenizer.from_pretrained(config.base_t5_model)
         super().__init__(config, model, tokenizer)
         self.config = config
         # log the config values
@@ -38,11 +38,11 @@ class T5Model(T5BaseModel):
 
 
 def main(
-        t5_model: str = "t5-base", lr: float = 1e-4,  # 3^4
+        t5_model: str = "google/mt5-small", lr: float = 1e-4,  # 3^4
         epochs: int = 5, fp16: bool = False,
         dataset: Corpus = "cord19", batch_size: int = 16,
         max_len: int = 64, grad_accu: int = 1,
-        num_gpus: int = 1
+        num_gpus: int = 0
 ):
     pl.seed_everything(int(os.environ.get("SEED", 738)))
     config = Config(
@@ -87,7 +87,7 @@ def main(
         logger=[
             pl.loggers.TensorBoardLogger(str(DATASET_DIR / "tb_logs"), name=""),
             pls.loggers.ScreenLogger(),
-            # pl.loggers.WandbLogger(project="t5-paraphrase")
+            pl.loggers.WandbLogger(project="t5-pretrain")
         ],
         log_every_n_steps=100
     )

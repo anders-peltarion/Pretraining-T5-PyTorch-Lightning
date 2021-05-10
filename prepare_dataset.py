@@ -12,7 +12,7 @@ import typer
 from tqdm import tqdm
 from transformers import T5Tokenizer
 
-DATA_FILE = "data/cord19-standard.txt"
+DATA_FILE = "data/swenglish_corpus.txt"
 DATASET_CACHE_PATH = Path("dataset_cache/")
 DATASET_CACHE_PATH.mkdir(exist_ok=True, parents=True)
 
@@ -71,7 +71,7 @@ def generate_target_ids(input_ids, mask_prob):
     target_ids = []
     for _input_sent_embed in tqdm(input_ids):  # let's calculate masks for denoising pretraining
         _target_sent_embed = []
-        masked_indexes = sorted(random.sample(range(0, len(_input_sent_embed)),  # sample a word index in sentence
+        masked_indexes = sorted(random.sample(range(0, len(_input_sent_embed)),  # sample a word index in sentence 0,31
                                               min(int(mask_prob * len(_input_sent_embed)),  # number of tokens masked
                                                   len(mask_tokens) - 1)))  # but never more than special tokens available
         mask = [(i in masked_indexes)  # this is True or False
@@ -106,23 +106,25 @@ def write_disk(input_ids, target_ids, file_counter):
     # print("\rFile written: " + str(CACHE_PATH / (Path("dataset_" + str(file_counter)).stem + ".jbl")))
 
 
-def main(tokenizer_name: str = typer.Argument("t5-base", help="T5 tokenizer used for token ids."),
-         valid_size: float = typer.Argument(0.2, help="Validation set size."),
-         dumps_size: int = typer.Argument(100, help="Size in MB for the dataset raw files."),
-         mask_probability: float = typer.Argument(0.15, help="Probability of masking a token in a sentence.")):
+def main(tokenizer_name: str = typer.Option("google/mt5-base", help="T5 tokenizer used for token ids."),
+         valid_size: float = typer.Option(0.2, help="Validation set size."),
+         dumps_size: float = typer.Option(0.2, help="Size in MB for the dataset raw files."),
+         mask_probability: float = typer.Option(0.15, help="Probability of masking a token in a sentence.")):
     """This script preprocesses and tokenizes a standardized pretraining text Dataset (a file with a sentence in each
     line) into a set of tokenized files for training and validating the text2text model."""
     tokenizer = T5Tokenizer.from_pretrained(tokenizer_name)
+    t5tokenizer = T5Tokenizer.from_pretrained('t5-base')
     global dot_token, dot_token_1, mask_tokens
     dot_token = tokenizer.convert_tokens_to_ids(["."])[0]
     dot_token_1 = tokenizer.convert_tokens_to_ids([")."])[0]
-    mask_tokens = tokenizer.additional_special_tokens_ids
+    t5_mask_tokens = t5tokenizer.additional_special_tokens  # tokenizer.additional_special_tokens does not work for mt5
+    mask_tokens = tokenizer.convert_tokens_to_ids(t5_mask_tokens)
     meta = {}
     words_per_dump = 300_000 * dumps_size  # approx. 300_000 words per mb of dump file.
     with open(DATA_FILE, 'r') as in_file:
         number_lines = len([0 for _ in in_file])
         in_file.seek(0)  # after reading number of lines, restart file pointer
-        n = 100000  # size of batches of sentences from input file. ~=100mb chunks
+        n = 3  # size of batches of sentences from input file. ~=0.2mb chunks (~=100mb chunks, was 100000)
         batch_counter, file_counter, words_counter = 1, 1, 0
         input_ids, target_ids = [], []
         for sentence_batch in iter(lambda: tuple(islice(in_file, n)), ()):  # tuples of islices size n until tuple ()

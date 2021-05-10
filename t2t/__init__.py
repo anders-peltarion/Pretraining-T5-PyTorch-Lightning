@@ -15,7 +15,6 @@ from transformers import (
     T5ForConditionalGeneration, T5Tokenizer, MT5ForConditionalGeneration, MT5Tokenizer
 )
 
-
 def masked_cross_entropy_loss(outputs, targets):
     # print(targets["ids"].shape, outputs.shape)
     targets, mask = targets["ids"], targets["mask"]
@@ -189,7 +188,7 @@ class T5BaseModel(pl.LightningModule):
             )
         return DataLoader(
             self.train_dataset, num_workers=4 if self.config.tpu_cores == 0 else 1, shuffle=False, drop_last=True,
-            batch_size=self.config.batch_size, collate_fn=self.collate_fn, sampler=sampler)
+            batch_size=self.config.batch_size, collate_fn=self.collate_fn, sampler=sampler)  # config.batch_size : 16
 
     def get_progress_bar_dict(self):
         # don't show the experiment version number
@@ -209,6 +208,8 @@ class T5BaseModel(pl.LightningModule):
             batch[1]
         )
         preds = torch.argmax(logits, dim=-1)[:, :batch[1]["ids"].size(1)]
+
+
         return {
             'loss': loss,
             'preds': preds,
