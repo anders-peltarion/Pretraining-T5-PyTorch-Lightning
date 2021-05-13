@@ -42,7 +42,7 @@ def main(
         epochs: int = 5, fp16: bool = False,
         dataset: Corpus = "cord19", batch_size: int = 16,
         max_len: int = 64, grad_accu: int = 1,
-        num_gpus: int = 0
+        num_gpus: str =  '1'
 ):
     pl.seed_everything(int(os.environ.get("SEED", 738)))
     config = Config(
@@ -73,7 +73,7 @@ def main(
         pl.callbacks.LearningRateMonitor(logging_interval='step'),
     ]
     trainer = pl.Trainer(
-        accelerator='dp' if num_gpus > 1 else None,
+        accelerator='dp' if len(num_gpus.strip(',')) > 1 else None,
         # amp_backend="apex", amp_level='O2',
         precision=16 if config.fp16 else 32,
         gpus=config.num_gpus,
